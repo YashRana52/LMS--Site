@@ -101,7 +101,7 @@ const courseSchema = new mongoose.Schema(
       default: [],
     },
 
-    courseRating: [
+    courseRatings: [
       {
         userId: {
           type: String,

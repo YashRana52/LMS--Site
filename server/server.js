@@ -17,15 +17,18 @@ await connectCloudinary();
 
 // middlewares
 app.use(cors());
+
+// ✅ Stripe webhook MUST be before express.json()
+app.post("/stripe", express.raw({ type: "application/json" }), stripeWebhooks);
+
+// ❌ JSON middleware Stripe ke baad
 app.use(express.json());
 app.use(clerkMiddleware());
 
 app.get("/", (_, res) => res.send("Server is live 🚀"));
 
-// clerk webhook
+// Clerk webhook (JSON ok)
 app.post("/clerk", express.json(), clerkWebhooks);
-
-app.post("/stripe", express.raw({ type: "application/json" }), stripeWebhooks);
 
 // routes
 app.use("/api/educator", educatorRouter);

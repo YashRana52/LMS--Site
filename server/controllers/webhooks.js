@@ -75,7 +75,7 @@ export const stripeWebhooks = async (req, res) => {
 
   try {
     event = stripeInstance.webhooks.constructEvent(
-      req.body,
+      req.body, // ✅ RAW BUFFER
       sig,
       process.env.WEBHOOK_ENDPOINT_SECRET,
     );
@@ -84,39 +84,68 @@ export const stripeWebhooks = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  switch (event.type) {
-    case "payment_intent.succeeded": {
-      const paymentIntent = event.data.object;
-      const { purchaseId } = paymentIntent.metadata;
+  try {
+    switch (event.type) {
+      // ✅ CORRECT EVENT FOR CHECKOUT SESSION
+      case "checkout.session.completed": {
+        const session = event.data.object;
 
-      const purchaseData = await Purchase.findById(purchaseId);
-      const userData = await User.findById(purchaseData.userId);
-      const courseData = await Course.findById(purchaseData.courseId);
+        const purchaseId = session.metadata?.purchaseId;
+        if (!purchaseId) {
+          console.error("❌ purchaseId missing in session metadata");
+          return res.json({ received: true });
+        }
 
-      courseData.enrolledStudents.push(userData._id);
-      await courseData.save();
+        const purchaseData = await Purchase.findById(purchaseId);
+        if (!purchaseData) {
+          console.error("❌ Purchase not found:", purchaseId);
+          return res.json({ received: true });
+        }
 
-      userData.enrolledCourses.push(courseData._id);
-      await userData.save();
+        // idempotency protection
+        if (purchaseData.status === "completed") {
+          return res.json({ received: true });
+        }
 
-      purchaseData.status = "completed";
-      await purchaseData.save();
-      break;
+        const userData = await User.findById(purchaseData.userId);
+        const courseData = await Course.findById(purchaseData.courseId);
+
+        // prevent duplicate enrollment
+        if (!courseData.enrolledStudents.includes(userData._id)) {
+          courseData.enrolledStudents.push(userData._id);
+          await courseData.save();
+        }
+
+        if (!userData.enrolledCourses.includes(courseData._id)) {
+          userData.enrolledCourses.push(courseData._id);
+          await userData.save();
+        }
+
+        purchaseData.status = "completed";
+        await purchaseData.save();
+
+        break;
+      }
+
+      case "checkout.session.expired": {
+        const session = event.data.object;
+        const purchaseId = session.metadata?.purchaseId;
+
+        if (purchaseId) {
+          await Purchase.findByIdAndUpdate(purchaseId, {
+            status: "failed",
+          });
+        }
+        break;
+      }
+
+      default:
+        console.log(`Unhandled Stripe event: ${event.type}`);
     }
 
-    case "payment_intent.payment_failed": {
-      const paymentIntent = event.data.object;
-      const { purchaseId } = paymentIntent.metadata;
-
-      await Purchase.findByIdAndUpdate(purchaseId, {
-        status: "failed",
-      });
-      break;
-    }
-
-    default:
-      console.log(`Unhandled event type ${event.type}`);
+    res.json({ received: true });
+  } catch (error) {
+    console.error("Webhook processing error:", error);
+    res.json({ received: true }); // ❗ never send 500 to Stripe
   }
-
-  res.json({ received: true });
 };

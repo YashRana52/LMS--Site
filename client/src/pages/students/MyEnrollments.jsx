@@ -14,12 +14,12 @@ function MyEnrollments() {
     fetchUserEnrolledCourses,
     backendUrl,
     getToken,
-    calculateNoOfLectures,
+    calculateNoOfLecture,
   } = useContext(AppContext);
 
   const navigate = useNavigate();
 
-  const [progressArray, setprogressArray] = useState([]);
+  const [progressArray, setProgressArray] = useState([]);
 
   const getCourseProgress = async () => {
     try {

@@ -7,7 +7,7 @@ import Stripe from "stripe";
 //get user data
 export const getUserData = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = req.auth();
 
     const user = await User.findById(userId);
 
@@ -34,7 +34,7 @@ export const getUserData = async (req, res) => {
 //user Enrolled Courses With lecture links
 export const userEnrolledCourses = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = req.auth();
 
     const userData = await User.findById(userId).populate("enrolledCourses");
 
@@ -131,7 +131,8 @@ export const purchaseCourse = async (req, res) => {
 
 export const updateUserCourseProgress = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = req.auth();
+
     const { courseId, lectureId } = req.body;
 
     const progressData = await CourseProgress.findOne({ userId, courseId });
@@ -169,7 +170,7 @@ export const updateUserCourseProgress = async (req, res) => {
 
 export const getUserProgress = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = req.auth();
 
     const { courseId } = req.body;
     const progressData = await CourseProgress.findOne({ userId, courseId });
@@ -191,7 +192,8 @@ export const getUserProgress = async (req, res) => {
 
 export const addUserRating = async (req, res) => {
   try {
-    const userId = req.auth.userId;
+    const { userId } = req.auth();
+
     const { courseId, rating } = req.body;
 
     if (!courseId || !userId || !rating || rating < 1 || rating > 5) {
